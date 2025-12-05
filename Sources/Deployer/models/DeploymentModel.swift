@@ -1,6 +1,7 @@
-import Fluent
-import Mist
 import Vapor
+import Fluent
+import FluentSQLiteDriver
+import Mist
 
 extension Deployment
 {
