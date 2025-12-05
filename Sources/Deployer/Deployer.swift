@@ -49,7 +49,7 @@ extension Application.Deployer
         var deploymentRow: any Mist.Component
         var deploymentStatus: any Mist.Component
         
-        static let standard = Configuration(
+        public static let standard = Configuration(
             port: 8081,
             dbFile: "deploy/Deployer.db",
             mistSocketPath: ["deployment", "ws"],
