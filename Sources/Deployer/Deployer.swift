@@ -29,10 +29,10 @@ extension Application
             app.views.use(.leaf)
             
             app.environment.useVariables()
-            app.useWebhook()
-            app.useDeployPanel()
+            app.useWebhook(config: config)
+            app.useRoutes(config: config)
             
-            app.asyncCommands.use(DeployCommand(), as: "deploy")
+            app.asyncCommands.use(Command(config: config), as: "deploy")
         }
     }
     
@@ -48,18 +48,37 @@ extension Application.Deployer
         var mistSocketPath: [PathComponent]
         var deploymentRow: any Mist.Component
         var deploymentStatus: any Mist.Component
+        var serverConfig: Pipeline.Configuration
+        var deployerConfig: Pipeline.Configuration
         
-        public static let standard = Configuration(
-            port: 8081,
-            dbFile: "deploy/Deployer.db",
-            mistSocketPath: ["deployment", "ws"],
-            deploymentRow: DeploymentRow(),
-            deploymentStatus: DeploymentStatus()
-        )
+        public static var standard: Configuration
+        {
+            Configuration(
+                port: 8081,
+                dbFile: "deploy/Deployer.db",
+                mistSocketPath: ["deployment", "ws"],
+                deploymentRow: DeploymentRow(),
+                deploymentStatus: DeploymentStatus(),
+                serverConfig: .init(
+                    productName: "Mottzi",
+                    supervisorJob: "mottzi",
+                    workingDirectory: "/var/www/mottzi",
+                    buildConfiguration: "debug",
+                    pusheventPath: ["pushevent", "mottzi"]
+                ),
+                deployerConfig: .init(
+                    productName: "Deployer",
+                    supervisorJob: "deployer",
+                    workingDirectory: "/var/www/deployer",
+                    buildConfiguration: "debug",
+                    pusheventPath: ["pushevent", "deployer"]
+                )
+            )
+        }
     }
 }
 
-extension Application.Mist
+extension Application.Deployer
 {
     final class Storage: @unchecked Sendable
     {
@@ -78,7 +97,7 @@ extension Application.Mist
     }
 }
 
-//extension Application.Mist
+//extension Application.Deployer
 //{
 //    private struct SocketPathKey: LockKey {}
 //

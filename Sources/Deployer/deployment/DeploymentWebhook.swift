@@ -2,28 +2,22 @@ import Vapor
 
 extension Application
 {
-    func useWebhook()
+    func useWebhook(config: Deployer.Configuration)
     {
-        Deployment.Webhook.register("pushevent", "mottzi", on: self)
+        Deployer.Webhook.register(config.serverConfig.pusheventPath, on: self)
         { request async in
             
-            let pipeline = Deployment.Pipeline(
-                productName: "Mottzi",
-                supervisorJob: "mottzi",
-                workingDirectory: "/var/www/mottzi",
-                buildConfiguration: "debug"
-            )
-            
+            let pipeline = Deployer.Pipeline(config: config.serverConfig)
             await pipeline.deploy(message: request.commitMessage, on: self)
         }
     }
 }
 
-extension Deployment
+extension Application.Deployer
 {
     struct Webhook
     {
-        static func register(_ endpoint: PathComponent..., on app: Application, action: @Sendable @escaping (Request) async -> Void)
+        static func register(_ endpoint: [PathComponent], on app: Application, action: @Sendable @escaping (Request) async -> Void)
         {
             let accepted = Response(status: .ok, body: .init(stringLiteral: "[mottzi] Push event accepted."))
             let denied = Response(status: .forbidden, body: .init(stringLiteral: "[mottzi] Push event denied."))
@@ -63,7 +57,7 @@ extension Deployment
     }
 }
 
-extension Deployment.Webhook
+extension Application.Deployer.Webhook
 {
     struct Payload: Codable
     {
@@ -81,12 +75,14 @@ extension Request
 {
     var commitMessage: String?
     {
+        typealias Payload = Application.Deployer.Webhook.Payload
+        
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         
         guard let bodyString = self.body.string else { return nil }
         guard let jsonData = bodyString.data(using: .utf8) else { return nil }
-        guard let payload = try? decoder.decode(Deployment.Webhook.Payload.self, from: jsonData) else { return nil }
+        guard let payload = try? decoder.decode(Payload.self, from: jsonData) else { return nil }
         
         return payload.headCommit.message
     }

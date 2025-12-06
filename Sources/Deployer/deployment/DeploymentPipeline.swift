@@ -1,17 +1,12 @@
 import Fluent
 import Vapor
 
-extension Deployment
+extension Application.Deployer
 {
     struct Pipeline
     {
-        let productName: String
-        let supervisorJob: String
-        let workingDirectory: String
-        let buildConfiguration: String
+        let config: Configuration
         
-        typealias ProductName = String
-
         public func deploy(message: String? = nil, on app: Application) async
         {
             await start(message: message, on: app)
@@ -19,15 +14,27 @@ extension Deployment
     }
 }
 
-extension Deployment.Pipeline
+extension Application.Deployer.Pipeline
+{
+    public struct Configuration: Sendable
+    {
+        let productName: String
+        let supervisorJob: String
+        let workingDirectory: String
+        let buildConfiguration: String
+        let pusheventPath: [PathComponent]
+    }
+}
+
+extension Application.Deployer.Pipeline
 {
     private func start(message: String?, on app: Application) async
     {
         let canDeploy = await Manager.shared.requestPipeline()
 
         let newDeployment = Deployment(
-            productName: productName,
-            supervisorJob: supervisorJob,
+            productName: config.productName,
+            supervisorJob: config.supervisorJob,
             status: canDeploy ? "running" : "canceled",
             message: message ?? ""
         )
@@ -69,12 +76,12 @@ extension Deployment.Pipeline
         deployment.finishedAt = .now
         deployment.errorMessage = error.localizedDescription
         try? await deployment.save(on: app.db)
-        await Deployment.Pipeline.Manager.shared.endDeployment()
+        await Manager.shared.endDeployment()
         Logger(label: "Mottzi.Deployment.Pipeline").error("\(error.localizedDescription)")
     }
 }
 
-extension Deployment.Pipeline
+extension Application.Deployer.Pipeline
 {
     private func run(_ deployment: Deployment, on app: Application) async throws
     {
@@ -88,7 +95,7 @@ extension Deployment.Pipeline
         deployment.status = "success"
         deployment.finishedAt = .now
         try await deployment.save(on: app.db)
-        await Deployment.Pipeline.Manager.shared.endDeployment()
+        await Manager.shared.endDeployment()
         
         guard let nextDeployment = try await findNextDeployment(after: deployment, on: app) else
         {
@@ -101,7 +108,7 @@ extension Deployment.Pipeline
     }
 }
 
-extension Deployment.Pipeline
+extension Application.Deployer.Pipeline
 {
     private func findNextDeployment(after deployment: Deployment, on app: Application) async throws -> Deployment?
     {
@@ -110,7 +117,7 @@ extension Deployment.Pipeline
             .sort(\.$startedAt, .descending)
             .all()
 
-        var cancelledDeploymentByProduct: [ProductName: Deployment] = [:]
+        var cancelledDeploymentByProduct: [String: Deployment] = [:]
         for cancelledDeployment in cancelledDeployments
         {
             guard cancelledDeploymentByProduct[cancelledDeployment.productName] == nil else { continue }
@@ -217,7 +224,7 @@ extension Deployment.Pipeline
     }
 }
 
-extension Deployment.Pipeline
+extension Application.Deployer.Pipeline
 {
     private enum PipelineError: Error, LocalizedError
     {
@@ -244,7 +251,7 @@ extension Deployment.Pipeline
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
             process.arguments = ["bash", "-c", command]
-            process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory)
+            process.currentDirectoryURL = URL(fileURLWithPath: config.workingDirectory)
 
             let pipe = Pipe()
             process.standardOutput = pipe
@@ -280,7 +287,7 @@ extension Deployment.Pipeline
 
     func build(_ deployment: Deployment) async throws
     {
-        try await execute("swift build -c \(buildConfiguration) --product \(deployment.productName)")
+        try await execute("swift build -c \(config.buildConfiguration) --product \(deployment.productName)")
     }
 
     func restart(_ deployment: Deployment) async throws
@@ -293,8 +300,8 @@ extension Deployment.Pipeline
         let eventLoop = app.eventLoopGroup.any()
         let threadPool = app.threadPool
 
-        let buildPath = "\(workingDirectory)/.build/\(buildConfiguration)/\(deployment.productName)"
-        let deployDir = "\(workingDirectory)/deploy"
+        let buildPath = "\(config.workingDirectory)/.build/\(config.buildConfiguration)/\(deployment.productName)"
+        let deployDir = "\(config.workingDirectory)/deploy"
         let deployPath = "\(deployDir)/\(deployment.productName)"
         let backupPath = "\(deployDir)/\(deployment.productName).old"
 
@@ -351,7 +358,7 @@ extension Deployment.Pipeline
     }
 }
 
-extension Deployment.Pipeline
+extension Application.Deployer.Pipeline
 {
     actor Manager
     {
