@@ -28,7 +28,7 @@ extension Application
             await app.mist.use(config.deploymentRow, config.deploymentStatus)
             
             app.environment.useVariables()
-            app.useWebhook(config: config)
+            app.deployer.useWebhook(config: config, on: app)
             app.useCommand(config: config)
         }
     }

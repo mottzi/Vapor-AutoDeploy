@@ -1,21 +1,21 @@
 import Vapor
 
-extension Application
+extension Application.Deployer
 {
-    func useWebhook(config: Deployer.Configuration)
+    func useWebhook(config: Configuration, on app: Application)
     {
-        Deployer.Webhook.register(using: config.serverConfig, on: self)
+        Webhook.register(using: config.serverConfig, on: app)
         { request, config async in
             
-            let pipeline = Deployer.Pipeline(config: config)
-            await pipeline.deploy(message: request.commitMessage, on: self)
+            let pipeline = Pipeline(config: config)
+            await pipeline.deploy(message: request.commitMessage, on: app)
         }
         
-        Deployer.Webhook.register(using: config.deployerConfig, on: self)
+        Webhook.register(using: config.deployerConfig, on: app)
         { request, config async in
             
-            let pipeline = Deployer.Pipeline(config: config)
-            await pipeline.deploy(message: request.commitMessage, on: self)
+            let pipeline = Pipeline(config: config)
+            await pipeline.deploy(message: request.commitMessage, on: app)
         }
     }
 }
