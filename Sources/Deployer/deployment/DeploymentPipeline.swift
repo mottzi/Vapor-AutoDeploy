@@ -5,7 +5,8 @@ extension Application.Deployer
 {
     struct Pipeline
     {
-        let config: Configuration
+        let pipelineConfig: Application.Deployer.Pipeline.Configuration
+        let deployerConfig: Application.Deployer.Configuration
         
         public func deploy(message: String? = nil, on app: Application) async
         {
@@ -32,7 +33,7 @@ extension Application.Deployer.Pipeline
         let canDeploy = await Manager.shared.requestPipeline()
 
         let newDeployment = Deployment(
-            productName: config.productName,
+            productName: pipelineConfig.productName,
             status: canDeploy ? "running" : "canceled",
             message: message ?? ""
         )
@@ -75,7 +76,7 @@ extension Application.Deployer.Pipeline
         deployment.errorMessage = error.localizedDescription
         try? await deployment.save(on: app.db)
         await Manager.shared.endDeployment()
-        Logger(label: "Mottzi.Deployment.Pipeline").error("\(error.localizedDescription)")
+        Logger(label: "\(pipelineConfig.productName).Pipeline").error("\(error.localizedDescription)")
     }
 }
 
@@ -134,7 +135,7 @@ extension Application.Deployer.Pipeline
         }
 
         let differentProductCandidates = cancelledDeploymentByProduct.values
-            .filter { $0.productName != "Deployer" && $0.productName != deployment.productName }
+            .filter { $0.productName != deployerConfig.deployerConfig.productName && $0.productName != deployment.productName }
             .sorted { ($0.startedAt ?? .distantPast) > ($1.startedAt ?? .distantPast) }
         
         for candidate in differentProductCandidates
@@ -145,7 +146,7 @@ extension Application.Deployer.Pipeline
             }
         }
         
-        if let deployerProduct = cancelledDeploymentByProduct["Deployer"]
+        if let deployerProduct = cancelledDeploymentByProduct[deployerConfig.deployerConfig.productName]
         {
             if try await isSuperseded(deployerProduct, on: app) == false
             {
@@ -158,13 +159,13 @@ extension Application.Deployer.Pipeline
     
     private func handleNextDeployment(_ nextDeployment: Deployment, deployment: Deployment, on app: Application) async throws
     {
-        let isDeployer = deployment.productName == "Deployer"
+        let isDeployer = deployment.productName == deployerConfig.deployerConfig.productName
         let isSameProduct = deployment.productName == nextDeployment.productName
         
         if isDeployer && !isSameProduct
         {
             let hasPendingDeployerRestart = try await Deployment.query(on: app.db)
-                .filter(\.$productName, .equal, "Deployer")
+                .filter(\.$productName, .equal, deployerConfig.deployerConfig.productName)
                 .filter(\.$status, .equal, "canceled")
                 .filter(\.$mode, .equal, Deployment.Mode.restartOnly)
                 .first() != nil
@@ -248,7 +249,7 @@ extension Application.Deployer.Pipeline
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
             process.arguments = ["bash", "-c", command]
-            process.currentDirectoryURL = URL(fileURLWithPath: config.workingDirectory)
+            process.currentDirectoryURL = URL(fileURLWithPath: pipelineConfig.workingDirectory)
 
             let pipe = Pipe()
             process.standardOutput = pipe
@@ -284,7 +285,7 @@ extension Application.Deployer.Pipeline
 
     func build(_ deployment: Deployment) async throws
     {
-        try await execute("swift build -c \(config.buildConfiguration) --product \(deployment.productName)")
+        try await execute("swift build -c \(pipelineConfig.buildConfiguration) --product \(deployment.productName)")
     }
 
     func restart(_ deployment: Deployment) async throws
@@ -297,8 +298,8 @@ extension Application.Deployer.Pipeline
         let eventLoop = app.eventLoopGroup.any()
         let threadPool = app.threadPool
 
-        let buildPath = "\(config.workingDirectory)/.build/\(config.buildConfiguration)/\(deployment.productName)"
-        let deployDir = "\(config.workingDirectory)/deploy"
+        let buildPath = "\(pipelineConfig.workingDirectory)/.build/\(pipelineConfig.buildConfiguration)/\(deployment.productName)"
+        let deployDir = "\(pipelineConfig.workingDirectory)/deploy"
         let deployPath = "\(deployDir)/\(deployment.productName)"
         let backupPath = "\(deployDir)/\(deployment.productName).old"
 

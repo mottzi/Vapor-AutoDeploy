@@ -41,7 +41,7 @@ extension Application.Deployer
     public struct Configuration: Sendable
     {
         var port: Int
-        var workingDirectory: String
+//        var workingDirectory: String
         var dbFile: String
         var buildConfiguration: String
         var serverConfig: Pipeline.Configuration
@@ -55,7 +55,7 @@ extension Application.Deployer
         {
             Configuration(
                 port: 8081,
-                workingDirectory: "/var/www/mottzi",
+                //workingDirectory: "/home/vapor/mottzi",
                 dbFile: "deploy/deployer.db",
                 buildConfiguration: "debug",
                 serverConfig: Pipeline.Configuration(

@@ -5,16 +5,16 @@ extension Application.Deployer
     func useWebhook(config: Configuration, on app: Application)
     {
         Webhook.register(using: config.serverConfig, on: app)
-        { request, config async in
+        { request, serverConfig async in
             
-            let pipeline = Pipeline(config: config)
+            let pipeline = Pipeline(pipelineConfig: serverConfig, deployerConfig: config)
             await pipeline.deploy(message: request.commitMessage, on: app)
         }
         
         Webhook.register(using: config.deployerConfig, on: app)
-        { request, config async in
+        { request, deployerConfig async in
             
-            let pipeline = Pipeline(config: config)
+            let pipeline = Pipeline(pipelineConfig: deployerConfig, deployerConfig: config)
             await pipeline.deploy(message: request.commitMessage, on: app)
         }
     }
