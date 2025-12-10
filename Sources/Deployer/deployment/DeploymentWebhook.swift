@@ -4,18 +4,26 @@ extension Application.Deployer
 {
     func useWebhook(config: Configuration, on app: Application)
     {
-        Webhook.register(using: config.serverConfig, on: app)
-        { request, config async in
-            
-            let pipeline = Pipeline(config: config)
-            await pipeline.deploy(message: request.commitMessage, on: app)
-        }
+        let accepted = Response(status: .ok, body: .init(stringLiteral: "Push event accepted."))
+        let denied = Response(status: .forbidden, body: .init(stringLiteral: "Push event denied."))
         
-        Webhook.register(using: config.deployerConfig, on: app)
-        { request, config async in
+        app.post(config.pusheventPath)
+        { request async -> Response in
             
-            let pipeline = Pipeline(config: config)
-            await pipeline.deploy(message: request.commitMessage, on: app)
+            guard Webhook.validateSignature(of: request) else { return denied }
+            
+            guard let payload = request.payload else { return accepted }
+            
+            for config in Webhook.affectedProductConfigs(config: config, payload: payload)
+            {
+                Task.detached
+                {
+                    let pipeline = Pipeline(config: config)
+                    await pipeline.deploy(message: payload.headCommit.message, on: app)
+                }
+            }
+            
+            return accepted
         }
     }
 }
@@ -24,24 +32,7 @@ extension Application.Deployer
 {
     struct Webhook
     {
-        static func register(
-            using config: Pipeline.Configuration,
-            on app: Application,
-            onPush: @Sendable @escaping (Request, Pipeline.Configuration) async -> Void)
-        {
-            let accepted = Response(status: .ok, body: .init(stringLiteral: "[\(config.productName)] Push event accepted."))
-            let denied = Response(status: .forbidden, body: .init(stringLiteral: "[\(config.productName)] Push event denied."))
-
-            app.post(config.pusheventPath)
-            { request async -> Response in
-                
-                guard validateSignature(of: request) else { return denied }
-                Task.detached { await onPush(request, config) }
-                return accepted
-            }
-        }
-
-        private static func validateSignature(of request: Request) -> Bool 
+        static func validateSignature(of request: Request) -> Bool
         {
             let secret = Environment.Variables.GITHUB_WEBHOOK_SECRET.value
             guard let secretData = secret.data(using: .utf8) else { return false }
@@ -64,6 +55,26 @@ extension Application.Deployer
                 using: secretDataKey
             )
         }
+        
+        static func affectedProductConfigs(config: Configuration, payload: Webhook.Payload) -> [Pipeline.Configuration]
+        {
+            let allChangedFiles = payload.commits.flatMap { $0.added + $0.modified + $0.removed }
+            
+            let configs: [Pipeline.Configuration] = [
+                .init(productName: config.serverProduct, workingDirectory: config.workingDirectory, buildConfiguration: config.buildConfiguration),
+                .init(productName: config.deployerProduct, workingDirectory: config.workingDirectory, buildConfiguration: config.buildConfiguration)
+            ]
+            
+            guard !allChangedFiles.contains(where: { $0 == "Package.swift" || $0 == "Package.resolved" }) else { return configs }
+            
+            return configs.filter
+            { config in
+                allChangedFiles.contains
+                { file in
+                    file.hasPrefix("Sources/\(config.productName)/")
+                }
+            }
+        }
     }
 }
 
@@ -72,29 +83,31 @@ extension Application.Deployer.Webhook
     struct Payload: Codable
     {
         let headCommit: Commit
-
+        let commits: [Commit]
+        
         struct Commit: Codable
         {
-            let id: String
             let message: String
+            let added: [String]
+            let modified: [String]
+            let removed: [String]
         }
     }
 }
 
 extension Request
 {
-    var commitMessage: String?
+    typealias Payload = Application.Deployer.Webhook.Payload
+
+    var payload: Payload?
     {
-        typealias Payload = Application.Deployer.Webhook.Payload
-        
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         
         guard let bodyString = self.body.string else { return nil }
         guard let jsonData = bodyString.data(using: .utf8) else { return nil }
-        guard let payload = try? decoder.decode(Payload.self, from: jsonData) else { return nil }
         
-        return payload.headCommit.message
+        return try? decoder.decode(Payload.self, from: jsonData)
     }
 }
 

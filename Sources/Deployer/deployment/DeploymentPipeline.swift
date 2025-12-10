@@ -19,10 +19,8 @@ extension Application.Deployer.Pipeline
     public struct Configuration: Sendable
     {
         let productName: String
-        let supervisorJob: String
         let workingDirectory: String
         let buildConfiguration: String
-        let pusheventPath: [PathComponent]
     }
 }
 
@@ -34,7 +32,6 @@ extension Application.Deployer.Pipeline
 
         let newDeployment = Deployment(
             productName: config.productName,
-            supervisorJob: config.supervisorJob,
             status: canDeploy ? "running" : "canceled",
             message: message ?? ""
         )
@@ -175,7 +172,6 @@ extension Application.Deployer.Pipeline
             {
                 let deferredDeployment = Deployment(
                     productName: deployment.productName,
-                    supervisorJob: deployment.supervisorJob,
                     status: "canceled",
                     message: deployment.message,
                     mode: .restartOnly
@@ -292,7 +288,7 @@ extension Application.Deployer.Pipeline
 
     func restart(_ deployment: Deployment) async throws
     {
-        try await execute("supervisorctl restart \(deployment.supervisorJob)")
+        try await execute("supervisorctl restart \(deployment.productName)")
     }
 
     func move(_ deployment: Deployment, using app: Application) async throws

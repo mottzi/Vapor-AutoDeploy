@@ -19,7 +19,6 @@ final class Deployment: Mist.Model, Content, @unchecked Sendable
     @ID(key: .id) var id: UUID?
     @Enum(key: "mode") var mode: Mode
     @Field(key: "product_name") var productName: String
-    @Field(key: "supervisor_job") var supervisorJob: String
     @Field(key: "status") var status: String
     @Field(key: "message") var message: String
     @Field(key: "is_current") var isCurrent: Bool
@@ -29,10 +28,9 @@ final class Deployment: Mist.Model, Content, @unchecked Sendable
 
     init() {}
 
-    init(productName: String, supervisorJob: String, status: String, message: String, mode: Mode = .standard)
+    init(productName: String, status: String, message: String, mode: Mode = .standard)
     {
         self.productName = productName
-        self.supervisorJob = supervisorJob
         self.status = status
         self.message = message
         self.isCurrent = false
@@ -50,7 +48,6 @@ extension Deployment
             try await database.schema(Deployment.schema)
                 .id()
                 .field("product_name", .string, .required)
-                .field("supervisor_job", .string, .required)
                 .field("status", .string, .required)
                 .field("message", .string, .required)
                 .field("is_current", .bool, .required, .sql(.default(false)))

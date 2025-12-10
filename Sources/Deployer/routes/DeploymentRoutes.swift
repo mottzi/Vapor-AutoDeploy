@@ -12,7 +12,7 @@ extension Application
     
     func useCommandRoute(config: Deployer.Configuration)
     {
-        self.post("\(config.deployerConfig.productName)/deploy")
+        self.post("\(config.panelRoute)/deploy")
         { request async throws -> String in
 
             guard let providedSecret = request.headers.first(name: "X-Deploy-Secret"),
@@ -24,8 +24,13 @@ extension Application
             
             Task.detached
             {
-                let pipeline = Deployer.Pipeline(config: config.deployerConfig)
-                await pipeline.deploy(message: "[CLI] \(config.deployerConfig.productName)", on: self)
+                let pipelineConfig = Deployer.Pipeline.Configuration(
+                    productName: config.deployerProduct,
+                    workingDirectory: config.workingDirectory,
+                    buildConfiguration: config.buildConfiguration
+                )
+                let pipeline = Deployer.Pipeline(config: pipelineConfig)
+                await pipeline.deploy(message: "[CLI] \(config.deployerProduct)", on: self)
             }
 
             return "Started deployment pipeline"

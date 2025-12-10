@@ -12,12 +12,12 @@ extension Application.Deployer
         init(config: Application.Deployer.Configuration)
         {
             self.config = config
-            self.help = "Pulls, builds, moves and restarts \(config.deployerConfig.productName)."
+            self.help = "Pulls, builds, moves and restarts \(config.deployerProduct)."
         }
 
         func run(using context: CommandContext, signature: Signature) async throws
         {
-            let uri = URI(string: "http://localhost:\(config.port)/\(config.deployerConfig.productName)/deploy")
+            let uri = URI(string: "http://localhost:\(config.port)/\(config.panelRoute)/deploy")
 
             let response = try await context.application.client.post(uri)
             {

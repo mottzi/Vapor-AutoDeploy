@@ -4,7 +4,7 @@ import Mist
 
 extension Application
 {
-    public struct Deployer
+    public struct Deployer: Sendable
     {
         public let app: Application
         
@@ -25,7 +25,7 @@ extension Application
             
             app.views.use(.leaf)
             app.mist.socketPath = config.mistSocketPath
-            await app.mist.use(config.deploymentRow, config.deploymentStatus)
+            await app.mist.use(config.rowComponent, config.statusComponent)
             
             app.environment.useVariables()
             app.deployer.useWebhook(config: config, on: app)
@@ -41,35 +41,31 @@ extension Application.Deployer
     public struct Configuration: Sendable
     {
         var port: Int
+        var workingDirectory: String
         var dbFile: String
+        var pusheventPath: [PathComponent]
         var mistSocketPath: [PathComponent]
-        var deploymentRow: any Mist.Component
-        var deploymentStatus: any Mist.Component
-        var serverConfig: Pipeline.Configuration
-        var deployerConfig: Pipeline.Configuration
+        var buildConfiguration: String
+        var serverProduct: String
+        var deployerProduct: String
+        var panelRoute: [PathComponent]
+        var rowComponent: any Mist.Component
+        var statusComponent: any Mist.Component
         
         public static var standard: Configuration
         {
             Configuration(
                 port: 8081,
+                workingDirectory: "/var/www/mottzi",
                 dbFile: "deploy/Deployer.db",
+                pusheventPath: ["pushevent"],
                 mistSocketPath: ["deployment", "ws"],
-                deploymentRow: DeploymentRow(),
-                deploymentStatus: DeploymentStatus(),
-                serverConfig: Pipeline.Configuration(
-                    productName: "Mottzi",
-                    supervisorJob: "mottzi",
-                    workingDirectory: "/var/www/mottzi",
-                    buildConfiguration: "debug",
-                    pusheventPath: ["pushevent", "mottzi"]
-                ),
-                deployerConfig: Pipeline.Configuration(
-                    productName: "Mottzi-deployer",
-                    supervisorJob: "mottzi-deployer",
-                    workingDirectory: "/var/www/mottzi-deployer",
-                    buildConfiguration: "debug",
-                    pusheventPath: ["pushevent", "mottzi-deployer"]
-                )
+                buildConfiguration: "debug",
+                serverProduct: "Mottzi",
+                deployerProduct: "Mottzi-Deployer",
+                panelRoute: ["Deployer"],
+                rowComponent: DeploymentRow(),
+                statusComponent: DeploymentStatus()
             )
         }
     }
