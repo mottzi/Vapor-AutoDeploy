@@ -11,7 +11,7 @@ extension Application
         { request async throws -> View in
             
             let componentsContext = await DeploymentRow().makeContext(ofAll: request.db)
-            let currentDeployment = try? await Deployment.getCurrent(named: config.serverProduct, on: request.db)
+            let currentDeployment = try? await Deployment.getCurrent(named: config.serverConfig.productName, on: request.db)
             
             let statusComponent = currentDeployment.map
             {

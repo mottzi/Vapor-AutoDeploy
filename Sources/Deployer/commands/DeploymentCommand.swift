@@ -12,7 +12,7 @@ extension Application.Deployer
         init(config: Application.Deployer.Configuration)
         {
             self.config = config
-            self.help = "Pulls, builds, moves and restarts \(config.deployerProduct)."
+            self.help = "Pulls, builds, moves and restarts \(config.deployerConfig.productName)."
         }
 
         func run(using context: CommandContext, signature: Signature) async throws

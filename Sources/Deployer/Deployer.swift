@@ -43,11 +43,10 @@ extension Application.Deployer
         var port: Int
         var workingDirectory: String
         var dbFile: String
-        var pusheventPath: [PathComponent]
-        var mistSocketPath: [PathComponent]
         var buildConfiguration: String
-        var serverProduct: String
-        var deployerProduct: String
+        var serverConfig: Pipeline.Configuration
+        var deployerConfig: Pipeline.Configuration
+        var mistSocketPath: [PathComponent]
         var panelRoute: [PathComponent]
         var rowComponent: any Mist.Component
         var statusComponent: any Mist.Component
@@ -57,13 +56,22 @@ extension Application.Deployer
             Configuration(
                 port: 8081,
                 workingDirectory: "/var/www/mottzi",
-                dbFile: "deploy/Deployer.db",
-                pusheventPath: ["pushevent"],
-                mistSocketPath: ["deployment", "ws"],
+                dbFile: "deploy/deployer.db",
                 buildConfiguration: "debug",
-                serverProduct: "Mottzi",
-                deployerProduct: "Mottzi-Deployer",
-                panelRoute: ["Deployer"],
+                serverConfig: Pipeline.Configuration(
+                    productName: "mottzi",
+                    workingDirectory: "/var/www/mottzi",
+                    buildConfiguration: "debug",
+                    pusheventPath: ["pushevent", "mottzi"]
+                ),
+                deployerConfig: Pipeline.Configuration(
+                    productName: "mottzi-deployer",
+                    workingDirectory: "/var/www/mottzi-deployer",
+                    buildConfiguration: "debug",
+                    pusheventPath: ["pushevent", "mottzi-deployer"]
+                ),
+                mistSocketPath: ["deployer", "ws"],
+                panelRoute: ["deployer"],
                 rowComponent: DeploymentRow(),
                 statusComponent: DeploymentStatus()
             )

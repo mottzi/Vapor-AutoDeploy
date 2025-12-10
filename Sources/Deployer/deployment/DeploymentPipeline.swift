@@ -21,6 +21,7 @@ extension Application.Deployer.Pipeline
         let productName: String
         let workingDirectory: String
         let buildConfiguration: String
+        var pusheventPath: [PathComponent]
     }
 }
 

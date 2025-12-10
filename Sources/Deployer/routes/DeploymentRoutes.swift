@@ -24,13 +24,8 @@ extension Application
             
             Task.detached
             {
-                let pipelineConfig = Deployer.Pipeline.Configuration(
-                    productName: config.deployerProduct,
-                    workingDirectory: config.workingDirectory,
-                    buildConfiguration: config.buildConfiguration
-                )
-                let pipeline = Deployer.Pipeline(config: pipelineConfig)
-                await pipeline.deploy(message: "[CLI] \(config.deployerProduct)", on: self)
+                let pipeline = Deployer.Pipeline(config: config.deployerConfig)
+                await pipeline.deploy(message: "[CLI] \(config.deployerConfig.productName)", on: self)
             }
 
             return "Started deployment pipeline"
